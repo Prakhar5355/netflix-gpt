@@ -1,5 +1,6 @@
 import openai from "../utils/openai";
 import { useRef } from "react";
+import { OPENAI_KEY } from "../utils/constants";
 import { useDispatch, useSelector } from "react-redux";
 import lang from "../utils/languageConstants";
 import { API_OPTIONS } from "../utils/constants";
@@ -9,7 +10,10 @@ const GptSearchBar = () => {
   const dispatch = useDispatch();
   const langKey = useSelector((store) => store.config.lang);
   const searchText = useRef(null);
+  const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+  const genAI = new GoogleGenerativeAI(OPENAI_KEY);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
   // search movie in TMDB
   const searchMovieTMDB = async (movie) => {
     const data = await fetch(
@@ -32,20 +36,23 @@ const GptSearchBar = () => {
       searchText.current.value +
       ". only give me names of 5 movies, comma seperated like the example result given ahead. Example Result: Gadar, Sholay, Don, Golmaal, Koi Mil Gaya";
 
-    const gptResults = await openai.chat.completions.create({
-      messages: [{ role: "user", content: gptQuery }],
-      model: "gpt-3.5-turbo",
-    });
+    // const gptResults = await openai.chat.completions.create({
+    //   messages: [{ role: "user", content: gptQuery }],
+    //   model: "gpt-3.5-turbo",
+    // });
+    const gptResults = await model.generateContent(gptQuery);
+console.log(gptResults.response.candidates?.[0]?.content?.parts?.[0]?.text,"moo")
+    // if (!gptResults.choices) {
+    //  return null
+    // }
 
-    if (!gptResults.choices) {
-     return null
-    }
-
-    console.log(gptResults.choices?.[0]?.message?.content);
+    // console.log(gptResults.choices?.[0]?.message?.content);
 
     // Andaz Apna Apna, Hera Pheri, Chupke Chupke, Jaane Bhi Do Yaaro, Padosan
-    const gptMovies = gptResults.choices?.[0]?.message?.content.split(",");
-
+    // const gptMovies = gptResults.choices?.[0]?.message?.content.split(",");
+const text = gptResults.response.candidates?.[0]?.content?.parts?.[0]?.text;
+const gptMovies = text ? text.split(',').map(movie => movie.trim()) : [];
+console.log(gptMovies,"kk")
     // ["Andaz Apna Apna", "Hera Pheri", "Chupke Chupke", "Jaane Bhi Do Yaaro", "Padosan"]
 
     // For each movie I will search TMDB API
@@ -55,7 +62,7 @@ const GptSearchBar = () => {
 
     const tmdbResults = await Promise.all(promiseArray);
 
-    console.log(tmdbResults);
+   
 
     dispatch(
       addGptMovieResult({ movieNames: gptMovies, movieResults: tmdbResults })
